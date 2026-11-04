@@ -29,15 +29,16 @@ Example (run locally after configuring a trusted secret source):
 ```python
 import asyncio
 import os
-from account_monitor import PocketOptionAccountMonitor
+from account_monitor import PocketOptionAccountMonitor, load_account_config
 
 async def main():
+    config = load_account_config()
     monitor = PocketOptionAccountMonitor(
-        os.environ["PO_SESSION"],
-        uid=int(os.environ["PO_UID"]),
-        is_demo=os.getenv("PO_IS_DEMO", "1") == "1",
-        platform=int(os.getenv("PO_PLATFORM", "1")),
-        region=os.getenv("PO_REGION", "DEMO"),
+        config["PO_SESSION"],
+        uid=int(config["PO_UID"]),
+        is_demo=config.get("PO_IS_DEMO", "1") == "1",
+        platform=int(config.get("PO_PLATFORM", "1")),
+        region=config.get("PO_REGION", "DEMO"),
     )
     try:
         await monitor.connect()

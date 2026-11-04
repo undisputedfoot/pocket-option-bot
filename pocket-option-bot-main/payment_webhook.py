@@ -11,7 +11,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from transaction_store import TransactionStore
+from ledger import TransactionLedger
 
 
 @dataclass(frozen=True)
@@ -26,7 +26,7 @@ class PaymentEvent:
 
 
 class PaymentWebhookProcessor:
-    def __init__(self, store: TransactionStore, provider: str, secret: str) -> None:
+    def __init__(self, store: TransactionLedger, provider: str, secret: str) -> None:
         if not provider or not secret:
             raise ValueError("provider and webhook secret are required")
         self.store, self.provider, self.secret = store, provider, secret.encode("utf-8")

@@ -3,7 +3,7 @@
 ## What is included
 
 - `account_monitor.py`: read-only session connection and balance-event request.
-- `transaction_store.py`: SQLite transaction ledger, unique provider-event IDs, and reference/amount/currency reconciliation.
+- `ledger.py`: SQLite transaction ledger, unique provider-event IDs, and reference/amount/currency reconciliation.
 - `payment_webhook.py`: provider-neutral HMAC-SHA256 webhook processor. A provider adapter must map the provider's official webhook fields and signature scheme into `PaymentEvent`.
 - Existing trade mirroring remains in `mirror_trade.py`.
 

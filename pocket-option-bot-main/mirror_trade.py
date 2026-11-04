@@ -123,17 +123,21 @@ class PocketOptionTradeExecutor:
             return self._client
 
         try:
-            self._client = self._build_async_client()
-            self._client_type = "async"
-            logger.info("%s | using async pocket-option client", self.label)
-            await self._connect_async_client()
+            candidate = self._build_async_client()
+        except RuntimeError as exc:
+            # Fall back only when the async SDK itself is unavailable. Connection,
+            # authentication, and network failures must never silently switch clients.
+            if "compatible Pocket Option package is required" not in str(exc):
+                raise
+            self._client = self._build_legacy_client()
+            self._client_type = "legacy"
+            logger.info("%s | using legacy Pocket Option client", self.label)
             return self._client
-        except RuntimeError:
-            pass
 
-        self._client = self._build_legacy_client()
-        self._client_type = "legacy"
-        logger.info("%s | using legacy Pocket Option client", self.label)
+        self._client = candidate
+        self._client_type = "async"
+        logger.info("%s | using async pocket-option client", self.label)
+        await self._connect_async_client()
         return self._client
 
     async def _connect_async_client(self) -> None:
@@ -152,8 +156,12 @@ class PocketOptionTradeExecutor:
         try:
             await asyncio.wait_for(client.authorized_event.wait(), timeout=10)
             logger.info("%s | authorized successfully", self.label)
-        except asyncio.TimeoutError:
-            logger.warning("%s | authorization timed out", self.label)
+        except asyncio.TimeoutError as exc:
+            logger.error("%s | authorization timed out; refusing to continue", self.label)
+            await client.disconnect()
+            self._client = None
+            self._client_type = None
+            raise TimeoutError(f"Pocket Option authorization timed out for {self.label}") from exc
 
         self._wait_task = asyncio.create_task(client.wait())
 
@@ -226,7 +234,6 @@ class PocketOptionTradeExecutor:
             trade_id, deal = trade_method(asset=asset, amount=order_amount, time=order_duration)
             return {
                 "label": self.label,
-                "ssid": self.ssid,
                 "asset": asset,
                 "action": norm_action,
                 "amount": order_amount,
@@ -253,7 +260,6 @@ class PocketOptionTradeExecutor:
 
         result = {
             "label": self.label,
-            "ssid": self.ssid,
             "asset": asset,
             "action": norm_action,
             "amount": order_amount,
@@ -561,7 +567,7 @@ def main() -> None:
     if not master_ssid or not child_ssid:
         raise SystemExit("Set MASTER_SSID and CHILD_SSID in your environment or .env file before running this script")
 
-    logger.info("mirror mode enabled | master=%s | child=%s", master_ssid[:8], child_ssid[:8])
+    logger.info("mirror mode enabled | master and child credentials loaded (values redacted)")
     print("One-way mirror mode enabled: the child account will mirror the master account trade automatically.")
 
     master_executor = PocketOptionTradeExecutor(master_ssid, "master")

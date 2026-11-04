@@ -52,3 +52,30 @@ def test_webhook_rejects_invalid_signature(tmp_path):
                                          "test-provider", "secret")
     with pytest.raises(PermissionError):
         processor.process(b'{"id":"x"}', "bad", PaymentEvent("x", "r", 1, "KES", "success"))
+
+
+def test_http_webhook_endpoint_accepts_signed_event_and_deduplicates(tmp_path, monkeypatch):
+    import asyncio
+    import webhook_app
+
+    secret = "endpoint-secret"
+    ledger = TransactionLedger(str(tmp_path / "endpoint.db"))
+    processor = PaymentWebhookProcessor(ledger, "sample", secret)
+    monkeypatch.setattr(webhook_app, "_processor", lambda: ("sample", processor))
+
+    payload = {"event_id": "evt-http", "reference": "REF-HTTP",
+               "amount_minor": 1250, "currency": "KES", "status": "success"}
+    raw = json.dumps(payload, separators=(",", ":")).encode()
+    signature = hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+
+    class FakeRequest:
+        headers = {"X-Signature": signature}
+
+        async def body(self):
+            return raw
+
+    first = asyncio.run(webhook_app.receive_payment_webhook("sample", FakeRequest()))
+    second = asyncio.run(webhook_app.receive_payment_webhook("sample", FakeRequest()))
+    assert first["accepted"] is True
+    assert first["duplicate"] is False
+    assert second["duplicate"] is True

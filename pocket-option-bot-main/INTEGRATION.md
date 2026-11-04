@@ -64,6 +64,18 @@ A provider adapter must:
 
 Never mark a payment as paid based only on a client redirect, screenshot, or unverified callback. Keep provider payment references distinct from Pocket Option trading/deal IDs. Reconciliation matches reference, amount, currency, and a successful status; ambiguous or mismatched records are surfaced rather than auto-approved.
 
+## Run the webhook receiver
+
+After setting `PAYMENT_PROVIDER` and `PAYMENT_WEBHOOK_SECRET` in the local `.env` file:
+
+```bash
+uvicorn webhook_app:app --host 127.0.0.1 --port 8000
+```
+
+The canonical endpoint is `POST /webhooks/{provider}`. It expects a JSON object containing `event_id`, `reference`, `amount_minor`, `currency`, and `status`, plus an `X-Signature` header containing the HMAC-SHA256 hex digest (optionally prefixed with `sha256=`). Amounts are integer minor units, e.g. 1250 means KES 12.50.
+
+This is a provider-neutral receiver, not a plug-and-play M-Pesa/PayPal/Stripe adapter. Each provider may use a different signature format and payload structure; implement and test that provider's official adapter before connecting its live webhook. Expose it publicly only behind HTTPS and a trusted reverse proxy.
+
 ## Tests
 
 ```bash

@@ -2,7 +2,26 @@
 from __future__ import annotations
 
 import asyncio
+import os
+from pathlib import Path
 from typing import Any
+
+
+def load_account_config() -> dict[str, str]:
+    """Read project .env and process environment without printing secrets."""
+    values: dict[str, str] = {}
+    env_path = Path(__file__).resolve().parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip().strip('"').strip("'")
+    values.update({key: value for key, value in os.environ.items()
+                   if key.startswith(("PO_", "PAYMENT_"))})
+    return values
+
 
 
 def _plain(value: Any) -> Any:
